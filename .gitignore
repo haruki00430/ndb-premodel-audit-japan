@@ -38,3 +38,12 @@ submission_package_JBI/
 # Internal agent handoff documents (process artifacts, not research outputs)
 01Paper1_Sonnet46_NDB_Initial_Execution_Handoff.docx
 02Paper1_Sonnet46_NDB_Full_Panel_Extraction_Instruction.docx
+01Paper1_*.md
+02Paper1_*.md
+
+# Internal process reports (AI execution logs, handoff memos)
+reports/
+
+# Internal AI execution reports (not research outputs)
+docs/Paper1_NDB_Initial_*.md
+docs/Paper1_NDB_Full_Panel_*.md
