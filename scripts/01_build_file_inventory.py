@@ -1,11 +1,23 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 NDB Open Data File Inventory Builder
-Builds: metadata/ndb_file_inventory.csv
-        metadata/ndb_release_year_map.csv
-Non-negotiable rules:
-  - Do not overwrite raw files
-  - Do not invent data
-  - Record missing states separately (suppressed / unpublished / not_applicable / missing_unknown / parse_error)
+ファイルインベントリ構築スクリプト
+
+Builds / 出力:
+  metadata/ndb_file_inventory.csv   — 全 3,137 ファイルのメタデータ一覧
+  metadata/ndb_release_year_map.csv — リリース番号 × レセプト/特定健診年度マップ
+
+What this script does / このスクリプトの目的:
+  NDB Open Data No.1-No.11 の全 Excel ファイルを再帰的に列挙し、
+  ファイル名から地理的集計単位・性別・年齢情報の有無を推定して CSV に記録する。
+  データを読み込まず、ファイルの存在とメタデータのみを記録する。
+
+Security rules / セキュリティルール:
+  - Do not overwrite raw files / raw/ 内のファイルを書き換えない
+  - Do not invent data / データを捏造しない
+  - Record missing states separately / 欠損状態は種別ごとに記録する
+    (suppressed / unpublished / not_applicable / missing_unknown / parse_error)
 """
 
 import os
@@ -65,7 +77,17 @@ CATEGORY_MAP = {
 
 
 def detect_geographic_level(filename: str) -> str:
-    """ファイル名から地理的集計単位を判定"""
+    """
+    ファイル名から地理的集計単位を判定する。
+    Infer the geographic aggregation level from the Excel filename.
+
+    Args:
+        filename: NDB Excel ファイル名
+
+    Returns:
+        str: "prefecture" / "secondary_medical_area" / "national" /
+             "sex_age_national" / "unknown" のいずれか
+    """
     fn = filename
     if "都道府県別" in fn:
         return "prefecture"
@@ -80,14 +102,35 @@ def detect_geographic_level(filename: str) -> str:
 
 
 def detect_sex_age_availability(filename: str) -> tuple:
-    """ファイル名から性別・年齢情報の有無を判定"""
+    """
+    ファイル名から性別・年齢情報の有無を判定する。
+    Infer whether sex and age stratification are available from the filename.
+
+    Args:
+        filename: NDB Excel ファイル名
+
+    Returns:
+        tuple[bool, bool]: (has_sex, has_age) — ファイル名に「性」「男/女」「年齢」「階級」が含まれるか
+    """
     has_sex = "性" in filename and ("男" in filename or "女" in filename or "性年齢" in filename or "性別" in filename)
     has_age = "年齢" in filename or "階級" in filename
     return has_sex, has_age
 
 
 def get_xlsx_files_recursive(folder: Path, release_no: int) -> list:
-    """フォルダ内のExcelファイルを再帰的に列挙"""
+    """
+    指定フォルダ配下の Excel ファイルを再帰的に列挙する。
+    Recursively enumerate all Excel files under the given NDB release folder.
+
+    ファイルは読み込まない（スキーマ・パス情報のみ記録）。
+
+    Args:
+        folder: 対象フォルダ（例: No.1 の root）
+        release_no: NDB リリース番号（1〜11）
+
+    Returns:
+        list[dict]: ファイルごとのメタデータレコード（地理単位・性別・年齢の有無を含む）
+    """
     records = []
     if not folder.exists():
         return records
@@ -127,7 +170,13 @@ def get_xlsx_files_recursive(folder: Path, release_no: int) -> list:
 
 
 def build_file_inventory():
-    """NDB No.1〜11 のファイルインベントリを構築"""
+    """
+    NDB No.1〜11 の全ファイルインベントリを構築して CSV に書き出す。
+    Build and export the complete file inventory for NDB Open Data releases No.1-11.
+
+    Returns:
+        list[dict]: 3,137 件のファイルメタデータレコード
+    """
     logger.info("=== ファイルインベントリ構築開始 ===")
     all_records = []
 
@@ -158,7 +207,16 @@ def build_file_inventory():
 
 
 def build_release_year_map():
-    """リリース年度マップを作成"""
+    """
+    リリース番号 × 年度マップを CSV に書き出す。
+    Export the release-number to fiscal-year mapping table.
+
+    RELEASE_YEAR_MAP 定数（厚労省公表情報に基づく）を CSV 形式で保存する。
+    構造的変化フラグ（二次医療圏追加: No.6〜, フォルダ再編: No.10〜）も記録する。
+
+    Returns:
+        list[dict]: 11 行のリリース年度マップ
+    """
     logger.info("=== リリース年度マップ構築 ===")
     out_path = META_DIR / "ndb_release_year_map.csv"
     fieldnames = [

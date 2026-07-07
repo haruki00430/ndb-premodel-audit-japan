@@ -1,18 +1,30 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-プロトタイプ long-format データ抽出スクリプト
-Builds: data/processed/ndb_prefecture_year_prototype.csv
+Prototype Long-Format Data Extraction (3 releases: No.1, No.6, No.11)
+プロトタイプ long-format データ抽出スクリプト（3 リリース試験抽出）
 
-Rules:
-  - Read raw files ONLY; never write to raw/
-  - Distinguish missing states: suppressed / unpublished / not_applicable / missing_unknown / parse_error
-  - Do not invent data
-  - Do not impute suppressed cells
+Builds / 出力:
+  data/processed/ndb_prefecture_year_prototype.csv — 30,099 件のプロトタイプパネル
 
-Extracts:
-  - Domain 1: Diabetes/metabolic — HbA1C & 空腹時血糖 mean values by prefecture × sex × age group
-    Sources: 各項目の平均値 files from No.1 (FY2013), No.6 (FY2018), No.11 (FY2023)
-  - Domain 2: Dental/oral — 歯科傷病 都道府県別 counts
-    Sources: 都道府県別傷病件数 from No.1 (FY2014), No.6 (FY2019), No.11 (FY2024)
+What this script does / このスクリプトの目的:
+  全 11 リリースの完全抽出（Script 05）の前段として、
+  第 1 回（FY2013/2014）・第 6 回（FY2018/2019）・第 11 回（FY2023/2024）の
+  3 時点について試験抽出を行い、Excel 構造・欠損状態分類が
+  正しく機能することを確認する。
+
+Domains / 対象ドメイン:
+  - Domain 1: 糖尿病/メタボ — HbA1C・空腹時血糖 の都道府県別性年齢階級別平均値
+    （特定健診検査データ）
+  - Domain 2: 歯科/口腔 — 都道府県別傷病件数
+    （レセプトデータ）
+
+Security rules / セキュリティルール:
+  - Read raw files ONLY; never write to raw/ / raw/ は読み取り専用
+  - Distinguish missing states / 欠損状態を種別ごとに記録する
+    (suppressed / unpublished / not_applicable / missing_unknown / parse_error)
+  - Do not invent data / データを捏造しない
+  - Do not impute suppressed cells / 抑制値（伏字）を補完しない
 """
 
 import os
@@ -83,7 +95,19 @@ SUPPRESSION_MARKERS = {"-", "－", "−", "*", "***", "x", "X", "　", "▲"}
 
 
 def parse_value(val):
-    """値のパース。suppression/missing状態を判別して返す"""
+    """
+    セル値を数値とパース可能か判定し、欠損状態を返す。
+    Parse a cell value and classify its missing state.
+
+    Args:
+        val: Excel セルの生の値（str / float / None）
+
+    Returns:
+        tuple[float|None, str|None]:
+            (value, missing_state)
+            value = float 数値（observed の場合）、None（それ以外）
+            missing_state = None（observed）/ "suppressed" / "missing_unknown" / "parse_error"
+    """
     if val is None or (isinstance(val, float) and np.isnan(val)):
         return None, "missing_unknown"
     s = str(val).strip()
@@ -98,7 +122,18 @@ def parse_value(val):
 
 
 def find_mean_values_file(release_no: int) -> Path:
-    """各項目の平均値 都道府県別ファイルのパスを返す"""
+    """
+    各項目の平均値 都道府県別ファイルのパスを返す。
+    Find the prefecture-level per-item mean values Excel file for a given release.
+
+    公費なし版（※1 / 01_公費レセプトを含まないデータ）を優先する。
+
+    Args:
+        release_no: NDB リリース番号（1〜11）
+
+    Returns:
+        Path: 対象ファイルのパス。見つからない場合は None。
+    """
     base = RAW_BASE / f"No.{release_no}" / "07_特定健診 検査"
     candidates = []
     for root, dirs, files in os.walk(base):
@@ -114,8 +149,23 @@ def find_mean_values_file(release_no: int) -> Path:
 
 def extract_metabolic_from_mean_file(release_no: int) -> list:
     """
-    各項目平均値ファイルから糖尿病/メタボ指標を抽出。
-    構造:
+    各項目平均値ファイルから糖尿病/メタボ指標を抽出する（プロトタイプ版）。
+    Extract diabetes/metabolic indicators from the per-item mean values file (prototype).
+
+    Excel 行構造 / Excel row structure:
+      Row 0: タイトル
+      Row 1: ヘッダー1（都道府県名 | 項目名 | 男性 各年齢 | 合計 | 女性 各年齢 | 合計）
+      Row 2: ヘッダー2（男性・女性の区別）
+      Row 3: ヘッダー3（年齢階級）
+      Row 4: ヘッダー4（単位）
+      Row 5+: データ（都道府県 × 項目）
+
+    Args:
+        release_no: NDB リリース番号（1〜11）
+
+    Returns:
+        list[dict]: 都道府県 × 性別 × 年齢階級 × 指標のレコード群
+    """
       Row 0: タイトル
       Row 1: ヘッダー1（都道府県名 | 項目名 | 男性 各年齢 | 合計 | 女性 各年齢 | 合計）
       Row 2: ヘッダー2（男性・女性の区別）
@@ -231,7 +281,16 @@ def extract_metabolic_from_mean_file(release_no: int) -> list:
 
 
 def find_dental_disease_prefecture_file(release_no: int) -> Path:
-    """歯科傷病 都道府県別ファイルのパスを返す"""
+    """
+    歯科傷病 都道府県別ファイルのパスを返す。
+    Find the dental disease prefecture-level Excel file for a given release.
+
+    Args:
+        release_no: NDB リリース番号（1〜11）
+
+    Returns:
+        Path: 対象ファイルのパス。見つからない場合は None。
+    """
     base = RAW_BASE / f"No.{release_no}" / "04_歯科傷病"
     for root, dirs, files in os.walk(base):
         for f in files:
@@ -242,8 +301,22 @@ def find_dental_disease_prefecture_file(release_no: int) -> Path:
 
 def extract_dental_from_disease_file(release_no: int) -> list:
     """
-    歯科傷病 都道府県別ファイルから上位疾患データを抽出。
-    構造:
+    歯科傷病都道府県別ファイルから上位疾患データを抽出する（プロトタイプ版）。
+    Extract top dental disease data from the prefecture-level disease file (prototype).
+
+    Excel 行構造 / Excel row structure:
+      Row 0: タイトル（FY情報）
+      Row 1: (空)
+      Row 2: ヘッダー1（疾病グループ | 疾患コード | 疾患名 | 総計 | 01北海道 | 02青森 ...）
+      Row 3: ヘッダー2（NaN | NaN | NaN | NaN | 北海道 | 青森 ...）
+      Row 4+: データ（疾病コード × 都道府県）
+
+    Args:
+        release_no: NDB リリース番号（1〜11）
+
+    Returns:
+        list[dict]: 都道府県 × 疾患グループのレコード群
+    """
       Row 0: タイトル（FY情報）
       Row 1: (空)
       Row 2: ヘッダー1（疾病グループ | 疾患コード | 疾患名 | 総計 | 01北海道 | 02青森 ...）

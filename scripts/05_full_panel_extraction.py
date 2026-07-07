@@ -1,19 +1,45 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-Full 11-release panel extraction for Paper 1.
-Extracts Grade A primary indicators:
-  - Domain: diabetes_metabolic (HbA1C, fasting_glucose, BMI, waist, systolic_BP,
-    diastolic_BP, triglycerides, LDL_cholesterol, HDL_cholesterol)
-  - Domain: dental_oral (dental_disease_counts by group)
-    No.8 → metric_change (excluded from main panel)
+Full 11-Release Prefecture-Year Panel Extraction
+NDB オープンデータ全 11 回完全パネル抽出スクリプト
 
-Output: data/processed/ndb_prefecture_year_full_panel.csv
+Output / 出力:
+  data/processed/ndb_prefecture_year_full_panel.csv — 146,376 件の long-format パネル
 
-Security rules:
-  - Read raw files ONLY; never write to raw/
-  - Do not invent data
-  - Do not impute suppressed cells
-  - Distinguish: observed / suppressed / unpublished / metric_change /
-    prefecture_unknown / parse_error / not_applicable
+What this script does / このスクリプトの目的:
+  NDB Open Data No.1-No.11 から Grade A の主要指標を全リリース・全都道府県について
+  抽出し、標準的な long-format パネルデータを生成する。
+
+Domains / 対象ドメイン:
+  糖尿病/メタボ (diabetes_metabolic):
+    HbA1C / 空腹時血糖 / BMI / 腹囲 / 収縮期血圧 / 拡張期血圧 /
+    中性脂肪 / LDL コレステロール / HDL コレステロール
+  歯科/口腔 (dental_oral):
+    都道府県別疾患グループ別傷病件数 ※ No.8 は metric_change として除外
+
+Key engineering decisions / 主な実装上の判断:
+  - LDL/HDL: No.1-5 では "ＬＤＬコレステロール"、No.6-11 では "ＬＤＬ" に省略
+    → NFKC 正規化 + 双方向パターンマッチで対応
+  - HbA1C: No.1-2 は "HbA1C"、No.3-10 は "HbA1c"（大文字小文字ゆれ）
+    → 大文字小文字を区別しない "HbA1" パターンマッチで対応
+  - No.8 歯科: 傷病件数ではなく算定回数ファイルのみ存在 → metric_change
+  - No.10-11: フォルダ構造が再編されたため、ファイル選択優先順位で対応
+
+Missing state vocabulary / 欠損状態の語彙（7 種）:
+  observed          : 数値が取得できた
+  suppressed        : 10 件未満のためダッシュ（"－"）で公表された
+  metric_change     : 指標の定義が変わったため比較不能（No.8 歯科）
+  prefecture_unknown: 都道府県情報が特定できない行
+  unpublished       : 当該リリースでファイルが存在しない
+  parse_error       : ファイル読み込みエラー
+  not_applicable    : 構造上のプレースホルダー
+
+Security rules / セキュリティルール:
+  - Read raw files ONLY; never write to raw/ / raw/ は読み取り専用
+  - Do not invent data / データを捏造しない
+  - Do not impute suppressed cells / 抑制値（伏字）を補完しない
+  - Distinguish all missing states / 欠損状態を混在させない
 """
 
 import os
@@ -119,7 +145,24 @@ OUTPUT_FIELDNAMES = [
 
 
 def parse_value(val):
-    """値を数値 or suppression状態に変換"""
+    """
+    生セル値を数値または欠損状態に変換する。
+    Parse a raw cell value into (numeric_value, missing_state).
+
+    NDB の抑制値マーカー（"－"・"−"・"*" 等）を suppressed として記録し、
+    空白・NaN を missing_unknown として記録する。
+    抑制値は絶対にゼロとして扱わない。
+
+    Args:
+        val: Excel セルの生値（str / float / None）
+
+    Returns:
+        tuple[float | None, str | None]:
+            (数値, None) — 正常に解析できた場合
+            (None, "suppressed") — 10 件未満の伏字マーカーの場合
+            (None, "missing_unknown") — 空白・NaN の場合
+            (None, "parse_error") — 解析不能な文字列の場合
+    """
     if val is None or (isinstance(val, float) and np.isnan(val)):
         return None, "missing_unknown"
     s = str(val).strip()
@@ -134,7 +177,20 @@ def parse_value(val):
 
 
 def normalize_str(s: str) -> str:
-    """全角→半角正規化（NFKC）でLDL/HDL等の全角英字マッチを保証"""
+    """
+    Unicode NFKC 正規化で全角英数字を半角に変換する。
+    Normalize full-width ASCII to half-width using NFKC.
+
+    NDB No.6-11 では "ＬＤＬ"（全角 3 文字）のように
+    コレステロール指標が全角英字で省略表記されている。
+    この関数で正規化することで半角パターンとのマッチが可能になる。
+
+    Args:
+        s: 正規化前の文字列
+
+    Returns:
+        str: NFKC 正規化後の文字列
+    """
     import unicodedata
     return unicodedata.normalize("NFKC", s)
 
@@ -183,7 +239,22 @@ def get_pref_code(pref_raw: str) -> tuple[str, str]:
 
 
 def match_item(item_raw_str: str) -> str | None:
-    """項目名を canonical indicator_name に変換（全角/半角両対応）"""
+    """
+    生ラベル文字列を正規化して canonical indicator_name に変換する。
+    Map a raw item label string to a canonical indicator name.
+
+    No.6-11 では "ＬＤＬ" のように省略された全角表記が使われているため、
+    NFKC 正規化 + 双方向マッチ（パターンが文字列を含む / 文字列がパターンを含む）
+    の両方を試みる。大文字小文字を区別しない。
+
+    Args:
+        item_raw_str: Excel から読み込んだ生の項目ラベル文字列
+            例: "HbA1C(NGSP)[%]"、"ＬＤＬ"、"腹囲"
+
+    Returns:
+        str | None: canonical 指標名（例: "HbA1C", "LDL_cholesterol"）
+                    マッチしない場合は None
+    """
     s = item_raw_str.strip()
     s_norm = normalize_str(s)
     s_norm_lower = s_norm.lower()
@@ -201,7 +272,25 @@ def match_item(item_raw_str: str) -> str | None:
 
 
 def extract_metabolic(release_no: int) -> list[dict]:
-    """各項目平均値ファイルから糖尿病/メタボ指標を全リリース抽出"""
+    """
+    各項目平均値ファイルから糖尿病/メタボ 9 指標を抽出する。
+    Extract diabetes/metabolic mean-value indicators from one NDB release.
+
+    Excel 構造（全リリース共通）:
+      Row 0: タイトル（年度情報）
+      Row 1: ヘッダー1（都道府県 | 健診項目 | 全国 | 男性 | 女性 ...）
+      Row 2-3: 性別・年齢階級ヘッダー
+      Row 4: 単位行（「単位」「%」「mg/dL」等）
+      Row 5+: データ行（都道府県 × 項目）
+
+    都道府県列（col 0）は先頭行のみ記入され以降は空のため ffill で補完する。
+
+    Args:
+        release_no: NDB リリース番号（1〜11）
+
+    Returns:
+        list[dict]: OUTPUT_FIELDNAMES に対応する long-format レコードのリスト
+    """
     fpath = find_mean_values_file(release_no)
     checkup_fy = RELEASE_TO_CHECKUP_FY[release_no]
 
@@ -308,8 +397,19 @@ def extract_metabolic(release_no: int) -> list[dict]:
 def find_dental_disease_file(release_no: int) -> tuple[Path, str]:
     """
     歯科傷病 都道府県別ファイルを返す。
-    No.8: 算定回数ファイルのみ存在 → metric_change
-    Returns (path, metric_flag): metric_flag = "disease_count" or "metric_change"
+    Find the dental disease-count prefecture-level file for a given release.
+
+    No.8（FY2021）は「傷病件数」ファイルが存在せず「算定回数」ファイルのみ存在する。
+    これは指標の定義が変わった（件数 → 回数）ため、比較不能として metric_change を返す。
+
+    Args:
+        release_no: NDB リリース番号（1〜11）
+
+    Returns:
+        tuple[Path | None, str]:
+            (path, "disease_count") — 傷病件数ファイルが見つかった場合
+            (path, "metric_change") — No.8 のように算定回数ファイルのみの場合
+            (None, "unpublished")   — ファイルが存在しない場合
     """
     base = RAW_BASE / f"No.{release_no}" / "04_歯科傷病"
     if not base.exists():
@@ -344,7 +444,26 @@ def find_dental_disease_file(release_no: int) -> tuple[Path, str]:
 
 
 def extract_dental(release_no: int) -> list[dict]:
-    """歯科傷病ファイルから都道府県別疾患グループ別傷病件数を抽出"""
+    """
+    歯科傷病ファイルから都道府県別・疾患グループ別の傷病件数を抽出する。
+    Extract dental disease-count records (prefecture × disease group) from one NDB release.
+
+    Excel 構造:
+      Row 0: タイトル（年度情報）
+      Row 1: （空）
+      Row 2: ヘッダー（疾病グループ | 疾患コード | 疾患名 | 総計 | 01 | 02 ... 47）
+      Row 3: 都道府県名（北海道 | 青森県 ...）
+      Row 4+: データ（疾患コード 1 行 × 都道府県 47 列）
+
+    10 件未満のセルは "－"（全角ダッシュ）で公表される（統計的開示制御）。
+    これを suppressed として記録し、ゼロとして扱わない。
+
+    Args:
+        release_no: NDB リリース番号（1〜11）
+
+    Returns:
+        list[dict]: OUTPUT_FIELDNAMES に対応する long-format レコードのリスト
+    """
     claims_fy = RELEASE_TO_CLAIMS_FY[release_no]
     fpath, metric_flag = find_dental_disease_file(release_no)
 

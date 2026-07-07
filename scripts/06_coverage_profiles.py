@@ -1,10 +1,24 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-Coverage matrix, missing/suppression profiles, and sensitivity tables.
-Reads: data/processed/ndb_prefecture_year_full_panel.csv
-Outputs:
-  tables/coverage_matrix.csv
-  tables/missing_suppression_profile.csv
-  tables/sensitivity_summary.csv
+Coverage Matrix, Missing-State Profiles, and Sensitivity Tables
+カバレッジマトリクス・欠損プロファイル・感度分析テーブル生成スクリプト
+
+Reads / 入力:
+  data/processed/ndb_prefecture_year_full_panel.csv — Script 05 の出力（146,376 件）
+
+Outputs / 出力:
+  tables/coverage_matrix.csv             — 指標×年度の都道府県カバレッジ（110 行）
+  tables/missing_suppression_profile.csv — 指標×年度×欠損状態のレコード数（1,611 行）
+  tables/sensitivity_summary.csv         — 感度分析 3 シナリオの比較（12 行）
+
+What this script does / このスクリプトの目的:
+  フルパネルデータを集計して、論文の Table 2-5 に対応する解析テーブルを生成する。
+
+Sensitivity scenarios / 感度分析シナリオ:
+  Scenario A (Main): No.8 歯科除外・prefecture_unknown 除外（メイン解析）
+  Scenario B:        No.8 を metric_change フラグ付きで含む（影響の文書化）
+  Scenario C:        prefecture_unknown を HbA1C パネルに戻して含む（感度確認）
 """
 
 import sys
@@ -34,6 +48,13 @@ MISSING_STATES = [
 
 
 def load_panel():
+    """
+    フルパネル CSV を読み込む。
+    Load the full prefecture-year panel CSV into a DataFrame.
+
+    Returns:
+        pd.DataFrame: 146,376 件の long-format パネルデータ（全カラム str 型）
+    """
     path = DATA_DIR / "ndb_prefecture_year_full_panel.csv"
     logger.info(f"Loading: {path}")
     df = pd.read_csv(path, encoding="utf-8-sig", dtype=str)
@@ -43,9 +64,18 @@ def load_panel():
 
 def build_coverage_matrix(df: pd.DataFrame):
     """
-    Coverage matrix: indicator × fiscal_year × prefecture.
-    Cell value = missing_state (or 'observed' / 'suppressed' / etc.)
-    Aggregated output: indicator × fiscal_year, with counts per state.
+    指標 × 年度 の都道府県カバレッジマトリクスを構築する。
+    Build the indicator × fiscal-year coverage matrix.
+
+    各セルに「都道府県のうち observed 値が取れた数」と「カバレッジ %」を記録する。
+    都道府県カバレッジは「都道府県単位で面的に揃っているか」を示す指標であり、
+    セル単位の suppression率（歯科で高い）とは区別される。
+
+    Args:
+        df: フルパネル DataFrame（Script 05 の出力）
+
+    Returns:
+        pd.DataFrame: 110 行のカバレッジマトリクス
     """
     # Focus on primary panel (exclude prefecture_unknown from main)
     main = df[~df["missing_state"].isin(["prefecture_unknown"])].copy()
@@ -116,8 +146,18 @@ def build_coverage_matrix(df: pd.DataFrame):
 
 def build_missing_suppression_profile(df: pd.DataFrame):
     """
-    Missing/suppression profile:
-    - By domain, indicator_name, fiscal_year: count of each missing_state
+    欠損状態プロファイルを構築する。
+    Build the missing-state distribution profile by domain × indicator × fiscal year.
+
+    指標・年度ごとに各欠損状態のレコード数と割合を集計する。
+    これにより「糖尿病系には suppressed が 0 件」「歯科には多い」という
+    ドメイン別の特性を定量化できる。
+
+    Args:
+        df: フルパネル DataFrame
+
+    Returns:
+        pd.DataFrame: 1,611 行の欠損プロファイル
     """
     rows = []
     for (domain, indicator, fy), grp in df.groupby(
@@ -148,10 +188,24 @@ def build_missing_suppression_profile(df: pd.DataFrame):
 
 def build_sensitivity_summary(df: pd.DataFrame, cov_df: pd.DataFrame):
     """
-    Sensitivity table: 3 scenarios
-      Scenario A: Main panel (No.8 excluded via metric_change, prefecture_unknown excluded)
-      Scenario B: Include No.8 as if metric_change were comparable (sensitivity check)
-      Scenario C: Exclude prefectures with any suppressed cell across all years
+    感度分析 3 シナリオの比較テーブルを構築する。
+    Build the sensitivity analysis summary across 3 scenarios.
+
+    Scenario A / メイン解析:
+        No.8 歯科データを metric_change として除外。
+        prefecture_unknown 行をメインパネルから除外。
+    Scenario B / No.8 含む:
+        No.8 を metric_change フラグ付きで含む。
+        No.8 の傷病件数と他リリースは比較不能だが、記録として文書化する。
+    Scenario C / prefecture_unknown 含む（HbA1C のみ）:
+        prefecture_unknown 行を HbA1C パネルに戻して全体の observed 率を確認する。
+
+    Args:
+        df: フルパネル DataFrame
+        cov_df: カバレッジマトリクス DataFrame（本関数では参照のみ）
+
+    Returns:
+        pd.DataFrame: 12 行の感度分析サマリー
     """
     rows = []
 

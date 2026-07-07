@@ -1,12 +1,29 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-Visualization scripts for Paper 1 Full Panel results.
-Outputs:
-  figures/temporal_coverage.png   — Indicator × Year coverage heatmap
-  figures/domain_missing_profile.png — Domain-level missing state profile
+Publication-Quality Figure Generation for Paper 1
+論文掲載品質図の生成スクリプト（300 dpi PNG × 2 枚）
 
-Security rules:
-  - Reads data files only
-  - Never writes to raw/
+Outputs / 出力:
+  figures/temporal_coverage.png      — 指標 × 年度 カバレッジヒートマップ (Figure 1)
+  figures/domain_missing_profile.png — ドメイン別欠損状態積み上げ棒グラフ (Figure 2)
+
+What this script does / このスクリプトの目的:
+  Script 06 が生成したカバレッジマトリクスと欠損プロファイルを読み込み、
+  論文に掲載するための図を 300 dpi PNG で生成する。
+
+Figure descriptions / 図の説明:
+  Figure 1 (temporal_coverage.png):
+    横軸 = 年度（FY2013-2024）、縦軸 = 指標名
+    セル値 = 47 都道府県のうち観測値が取れた割合（%）
+    カラースケール: 赤（0%）→ オレンジ（50%）→ 緑（100%）、灰色 = NaN
+  Figure 2 (domain_missing_profile.png):
+    横軸 = 指標名、縦軸 = レコード数
+    欠損状態ごとに色分けした積み上げ棒グラフ（左: 糖尿病/メタボ、右: 歯科）
+
+Security rules / セキュリティルール:
+  - Reads derived tables only / 派生テーブルのみ読み込む
+  - Never writes to raw/ / raw/ には書き込まない
 """
 
 import sys
@@ -58,8 +75,16 @@ except Exception:
 
 def figure_temporal_coverage():
     """
-    Heatmap: indicator × fiscal_year × prefecture coverage (%).
-    Uses coverage_matrix.csv.
+    指標 × 年度 × 都道府県カバレッジのヒートマップを生成する（Figure 1）。
+    Generate the indicator × fiscal-year prefecture coverage heatmap (Figure 1).
+
+    Script 06 が出力した coverage_matrix.csv を読み込み、
+    各セルに都道府県カバレッジ率（%）を色づけしたヒートマップを描画する。
+    赤（0%）→ 橙（50%）→ 緑（100%）のカラースケールを使用。
+    糖尿病/メタボ指標と歯科指標を破線で区切って表示する。
+
+    Input:  tables/coverage_matrix.csv
+    Output: figures/temporal_coverage.png (300 dpi)
     """
     cov_path = TABLES_DIR / "coverage_matrix.csv"
     if not cov_path.exists():
@@ -192,8 +217,19 @@ def figure_temporal_coverage():
 
 def figure_domain_missing_profile():
     """
-    Stacked bar chart: missing_state distribution by domain × indicator.
-    Uses missing_suppression_profile.csv.
+    ドメイン別欠損状態積み上げ棒グラフを生成する（Figure 2）。
+    Generate the domain-level missing-state stacked bar chart (Figure 2).
+
+    Script 06 が出力した missing_suppression_profile.csv を読み込み、
+    指標×欠損状態のレコード数を積み上げ棒グラフで表示する。
+    左パネル: 糖尿病/メタボ系（9 指標）、右パネル: 歯科系
+    各棒グラフの上部に observed 割合（%）を表示する。
+
+    欠損状態の色分け: 緑=observed, 橙=suppressed, 紫=metric_change,
+    茶=prefecture_unknown, 赤=unpublished, ピンク=parse_error, 黄=missing_unknown
+
+    Input:  tables/missing_suppression_profile.csv
+    Output: figures/domain_missing_profile.png (300 dpi)
     """
     prof_path = TABLES_DIR / "missing_suppression_profile.csv"
     if not prof_path.exists():

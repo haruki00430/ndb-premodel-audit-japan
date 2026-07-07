@@ -1,15 +1,30 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-Unit/Title audit for HbA1C and other metabolic items across all 11 NDB releases.
-Output: metadata/unit_title_audit.csv
+HbA1C Unit and Label Audit across NDB Open Data Releases No.1-No.11
+NDB オープンデータ全リリースの HbA1C 単位・ラベル監査スクリプト
 
-Checks:
-- HbA1C item label (explicit NGSP vs implicit)
-- Unit row content for each release
-- Ambiguity flag
+Output / 出力:
+  metadata/unit_title_audit.csv — リリースごとの HbA1C 表記・単位情報（11 行）
 
-Security rules:
-  - Read raw files ONLY; never write to raw/
-  - Do not invent data
+What this script does / このスクリプトの目的:
+  HbA1C には NGSP 値（%）と JDS 値（%）の 2 つの測定単位がある。
+  2013 年 4 月に日本では NGSP への移行が完了しているが、
+  NDB No.6 以降では Excel ファイル上の "(NGSP)[%]" の明示表記が
+  無断で削除されているため、単位の一貫性を確認する必要がある。
+  本スクリプトは全 11 リリースについて：
+    - HbA1C 項目ラベルの表記（NGSP 明示 vs 暗黙 vs JDS）
+    - 単位行の内容
+    - 曖昧性フラグ
+  を記録し、JDS ラベルが検出された場合は Stop Condition を発動する。
+
+Stop Condition / 停止条件:
+  JDS ラベルが 1 件でも検出された場合 → 解析を停止してユーザーに報告する。
+  本スクリプトの実行結果では JDS 検出ゼロ（Stop Condition 未発動）。
+
+Security rules / セキュリティルール:
+  - Read raw files ONLY; never write to raw/ / raw/ は読み取り専用
+  - Do not invent data / データを捏造しない
 """
 
 import os
@@ -44,11 +59,19 @@ RELEASE_TO_CHECKUP_FY = {
 def find_mean_values_file(release_no: int) -> Path:
     """
     各項目の平均値 都道府県別ファイルを返す。
-    優先順位:
-      1. "受診時年齢" + "都道府県別" (No.1 のみ 2 ファイルある)
-      2. "都道府県別性年齢" を含む (No.10/11 用)
-      3. "※1" / "01_公費レセプトを含まない" を含む
-      4. 最初に見つかったもの
+    Find the per-item mean values file (prefecture-level) for a given release.
+
+    優先順位 / Priority order:
+      1. "受診時年齢" + "都道府県別"  — No.1 のみ 2 ファイル存在するため受診時年齢を優先
+      2. "都道府県別性年齢" を含む   — No.10/11 のファイル構造再編後の主ファイル
+      3. "※1" / "01_公費レセプトを含まない" を含む — 公費なし版を優先
+      4. 最初に見つかったもの        — 上記に該当しない場合のフォールバック
+
+    Args:
+        release_no: NDB リリース番号（1〜11）
+
+    Returns:
+        Path: 対象ファイルのパス。見つからない場合は None。
     """
     base = RAW_BASE / f"No.{release_no}" / "07_特定健診 検査"
     if not base.exists():
@@ -81,7 +104,20 @@ def find_mean_values_file(release_no: int) -> Path:
 
 
 def audit_release(release_no: int) -> dict:
-    """1リリースのHbA1Cタイトル/単位情報を抽出"""
+    """
+    1 リリースの HbA1C タイトル・単位情報を抽出する。
+    Audit HbA1C item label and unit notation for a single NDB release.
+
+    Args:
+        release_no: NDB リリース番号（1〜11）
+
+    Returns:
+        dict: 以下のキーを持つ監査結果レコード
+            release_no, fiscal_year_checkup, source_file, source_subdir,
+            title_row_text, hba1c_item_label, hba1c_item_row,
+            unit_row_content, explicit_ngsp, explicit_jds,
+            explicit_percent, ambiguous_unit, notes
+    """
     fpath = find_mean_values_file(release_no)
     checkup_fy = RELEASE_TO_CHECKUP_FY[release_no]
 

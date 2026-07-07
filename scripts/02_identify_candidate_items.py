@@ -1,12 +1,27 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-候補アウトカム項目の特定とPrefecture-Year Feasibility評価
-Builds: tables/candidate_outcome_items.csv
-        tables/prefecture_year_feasibility.csv
+Candidate Indicator Identification and Prefecture-Year Feasibility Assessment
+候補アウトカム項目の特定と Prefecture-Year Feasibility 評価
 
-Rules:
-  - Read raw files only; never write to raw/
-  - Distinguish: suppressed, unpublished, not_applicable, missing_unknown, parse_error
-  - Do not invent data
+Builds / 出力:
+  tables/candidate_outcome_items.csv      — 25 指標候補の存在確認・地理的集計単位
+  tables/prefecture_year_feasibility.csv  — 指標別 Feasibility グレード (A〜D) 評価
+
+What this script does / このスクリプトの目的:
+  事前に定義した 25 の候補指標について、NDB No.1-No.11 の各リリースで
+  都道府県別ファイルが存在するかを確認し、時系列カバレッジと
+  Feasibility グレードを付与する。
+  Grade A = 10-11 リリースで都道府県別データあり（主解析に使用可能）
+  Grade B = 7-9 リリースで利用可能（条件付き）
+  Grade C = 6 リリース以下（補足目的のみ）
+  Grade D = 0 リリース（使用不可）
+
+Security rules / セキュリティルール:
+  - Read raw files only; never write to raw/ / raw/ は読み取り専用
+  - Distinguish missing states / 欠損状態を種別ごとに記録する
+    (suppressed / unpublished / not_applicable / missing_unknown / parse_error)
+  - Do not invent data / データを捏造しない
 """
 
 import os
@@ -128,8 +143,20 @@ CANDIDATE_ITEMS = [
 
 # ── No.1〜11 の特定健診検査ファイル検索パターン ─────────────────────────────────
 def find_exam_files(release_no: int, pattern: str) -> list:
-    """特定健診検査フォルダ内でパターンに一致する都道府県別ファイルを検索
-    大文字小文字を区別しない（HbA1C vs HbA1c 等の表記ゆれに対応）"""
+    """
+    特定健診検査フォルダ内で都道府県別ファイルを検索する。
+    Search for prefecture-level Excel files in the specific health checkup exam folder.
+
+    大文字小文字を区別しない（HbA1C vs HbA1c 等の表記ゆれに対応）。
+    Case-insensitive match — accommodates HbA1C/HbA1c naming variations across releases.
+
+    Args:
+        release_no: NDB リリース番号（1〜11）
+        pattern: 検索パターン文字列（例: "HbA1", "空腹時血糖"）
+
+    Returns:
+        list[Path]: 一致したファイルパスのリスト
+    """
     base = RAW_BASE / f"No.{release_no}" / "07_特定健診 検査"
     found = []
     if not base.exists():
@@ -242,7 +269,17 @@ def search_files_for_item(release_no: int, category: str, pattern: str) -> list:
 
 
 def build_candidate_items():
-    """候補アウトカム項目テーブルを構築"""
+    """
+    25 候補アウトカム項目の存在確認テーブルを構築して CSV に書き出す。
+    Build and export the candidate outcome item existence table for all 25 items.
+
+    各候補について No.1〜11 の全リリースにファイルが存在するかを確認し、
+    利用可能年度数・地理的集計単位・先頭ファイルサンプルを記録する。
+    実際にデータは読み込まない（ファイルの存在確認のみ）。
+
+    Returns:
+        list[dict]: 25 行の候補アウトカム項目テーブル
+    """
     logger.info("=== 候補アウトカム項目の特定開始 ===")
     rows = []
 
@@ -304,7 +341,24 @@ def build_candidate_items():
 
 
 def build_feasibility_table(candidate_rows):
-    """Prefecture-Year Feasibility テーブルを構築"""
+    """
+    Prefecture-Year Feasibility グレード評価テーブルを構築して CSV に書き出す。
+    Build and export the prefecture-year feasibility grade table.
+
+    Feasibility グレードは以下の基準で付与する:
+      Grade A: 10-11 リリースで都道府県別データあり → 主解析に使用可能
+      Grade B: 7-9 リリースで利用可能 → 条件付きで使用可能
+      Grade C: 6 リリース以下 → 補足目的のみ
+      Grade D: 0 リリース → 使用不可
+
+    構造的変化フラグ（二次医療圏追加・フォルダ再編・質問票欠如）も記録する。
+
+    Args:
+        candidate_rows: build_candidate_items() の出力リスト
+
+    Returns:
+        list[dict]: 25 行の Feasibility グレードテーブル
+    """
     logger.info("=== Prefecture-Year Feasibility 評価開始 ===")
     rows = []
 
