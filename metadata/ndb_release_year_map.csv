@@ -1,0 +1,12 @@
+﻿release_no,claims_fiscal_year,specific_health_checkup_fiscal_year,release_date_if_known,source_url_or_note,questionnaire_available,secondary_medical_area_added,public_fee_exclusion_restructured
+1,2014,2013,2015年度公表（FY2014レセプト・FY2013特定健診）,厚生労働省NDBオープンデータ公表ページ,no,no,no
+2,2015,2014,2016年度公表（FY2015レセプト・FY2014特定健診）,厚生労働省NDBオープンデータ公表ページ,yes,no,no
+3,2016,2015,2017年度公表（FY2016レセプト・FY2015特定健診）,厚生労働省NDBオープンデータ公表ページ,yes,no,no
+4,2017,2016,2018年度公表（FY2017レセプト・FY2016特定健診）,厚生労働省NDBオープンデータ公表ページ,yes,no,no
+5,2018,2017,2019年度公表（FY2018レセプト・FY2017特定健診）,厚生労働省NDBオープンデータ公表ページ,yes,no,no
+6,2019,2018,2020年度公表（FY2019レセプト・FY2018特定健診）,厚生労働省NDBオープンデータ公表ページ,yes,yes,no
+7,2020,2019,2021年度公表（FY2020レセプト・FY2019特定健診）,厚生労働省NDBオープンデータ公表ページ,yes,yes,no
+8,2021,2020,2022年度公表（FY2021レセプト・FY2020特定健診）,厚生労働省NDBオープンデータ公表ページ,yes,yes,no
+9,2022,2021,2023年度公表（FY2022レセプト・FY2021特定健診）,厚生労働省NDBオープンデータ公表ページ,yes,yes,no
+10,2023,2022,2024年度公表（FY2023レセプト・FY2022特定健診）,厚生労働省NDBオープンデータ公表ページ,yes,yes,yes
+11,2024,2023,2025年度公表（FY2024レセプト・FY2023特定健診）,厚生労働省NDBオープンデータ公表ページ,yes,yes,yes

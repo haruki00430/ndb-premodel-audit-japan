@@ -1,0 +1,13 @@
+﻿scenario,domain,indicator_name,n_releases,n_records_total,n_observed,n_suppressed,obs_pct,n_prefectures_zero_suppression,notes
+A_main_panel,diabetes_metabolic,BMI,11,8272,8272,0,100.0,47,Main panel: No.8 dental excluded; prefecture_unknown excluded
+A_main_panel,diabetes_metabolic,HDL_cholesterol,11,8272,8272,0,100.0,47,Main panel: No.8 dental excluded; prefecture_unknown excluded
+A_main_panel,diabetes_metabolic,HbA1C,11,8272,8272,0,100.0,47,Main panel: No.8 dental excluded; prefecture_unknown excluded
+A_main_panel,diabetes_metabolic,LDL_cholesterol,11,8272,8272,0,100.0,47,Main panel: No.8 dental excluded; prefecture_unknown excluded
+A_main_panel,diabetes_metabolic,diastolic_BP,11,8272,8272,0,100.0,47,Main panel: No.8 dental excluded; prefecture_unknown excluded
+A_main_panel,diabetes_metabolic,fasting_glucose,11,8272,8272,0,100.0,47,Main panel: No.8 dental excluded; prefecture_unknown excluded
+A_main_panel,diabetes_metabolic,systolic_BP,11,8272,8272,0,100.0,47,Main panel: No.8 dental excluded; prefecture_unknown excluded
+A_main_panel,diabetes_metabolic,triglycerides,11,8272,8272,0,100.0,47,Main panel: No.8 dental excluded; prefecture_unknown excluded
+A_main_panel,diabetes_metabolic,waist_circumference,11,8272,8272,0,100.0,47,Main panel: No.8 dental excluded; prefecture_unknown excluded
+A_main_panel,dental_oral,dental_disease_counts,10,71017,45285,25732,63.8,N/A,No.8 excluded (metric_change: 算定回数 not 傷病件数)
+B_include_No8_metric_change,dental_oral,dental_disease_counts,11,71064,45285,25732,N/A,N/A,No.8 included as metric_change (47 records); not comparable to other releases
+C_retain_prefecture_unknown,diabetes_metabolic,HbA1C,11,8368,8272,0,98.9,N/A,prefecture_unknown retained (96 records added back)

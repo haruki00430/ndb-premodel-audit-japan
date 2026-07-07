@@ -1,0 +1,60 @@
+cff-version: 1.2.0
+message: "If you use this code or data, please cite it as below."
+type: software
+title: >-
+  ndb-premodel-audit-japan: Analysis code for
+  'A Pre-Model Audit of Administrative Healthcare Data for AI-Oriented Research:
+  Evidence from NDB Open Data releases No.1-No.11'
+authors:
+  - family-names: Saito
+    given-names: Haruki
+    orcid: "https://orcid.org/0009-0009-7890-6068"
+    affiliation: >-
+      Department of Epidemiology, Fukushima Medical University
+      School of Medicine, Fukushima, Japan
+  - family-names: Ohira
+    given-names: Tetsuya
+    orcid: "https://orcid.org/0000-0003-4532-7165"
+    affiliation: >-
+      Department of Epidemiology, Fukushima Medical University
+      School of Medicine / Radiation Medical Science Center for the
+      Fukushima Health Management Survey, Fukushima Medical University,
+      Fukushima, Japan
+repository-code: "https://github.com/haruki00430/ndb-premodel-audit-japan"
+date-released: "2026-07-07"
+license: MIT
+version: "1.0.0"
+keywords:
+  - pre-model-audit
+  - administrative-data
+  - data-quality
+  - AI-readiness
+  - NDB
+  - NDB-Open-Data
+  - healthcare-informatics
+  - biomedical-informatics
+  - reproducibility
+  - Japan
+  - missing-data
+  - suppression
+abstract: >-
+  Analysis code and derived panel data for a methodological evaluation of
+  administrative healthcare data readiness for AI-oriented research.
+  Using Japan's NDB Open Data releases No.1-No.11 as an empirical case,
+  this study demonstrates a pre-model audit framework that distinguishes
+  file availability from study-ready data. The audit covers 146,376
+  long-format records (47 prefectures × 11 releases) across
+  diabetes/metabolic and dental/oral indicator domains.
+preferred-citation:
+  type: article
+  authors:
+    - family-names: Saito
+      given-names: Haruki
+    - family-names: Ohira
+      given-names: Tetsuya
+  title: >-
+    A Pre-Model Audit of Administrative Healthcare Data for AI-Oriented Research:
+    Evidence from NDB Open Data releases No.1-No.11
+  journal: "Journal of Biomedical Informatics"
+  year: 2026
+  notes: "Under review"
