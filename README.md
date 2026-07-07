@@ -1,4 +1,7 @@
-> **Repository (GitHub):** https://github.com/haruki00430/ndb-premodel-audit-japan
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21230851.svg)](https://doi.org/10.5281/zenodo.21230851)
+
+> **Repository (GitHub):** https://github.com/haruki00430/ndb-premodel-audit-japan  
+> **Zenodo DOI:** https://doi.org/10.5281/zenodo.21230851  
 > **Reproduction:** [`REPRODUCE.md`](REPRODUCE.md) · [`CITATION.cff`](CITATION.cff)
 
 # A Pre-Model Audit of Administrative Healthcare Data for AI-Oriented Research
@@ -116,6 +119,7 @@ If you use the code or data in this repository, please cite:
 Saito H, Ohira T. A Pre-Model Audit of Administrative Healthcare Data for
 AI-Oriented Research: Evidence from NDB Open Data releases No.1-No.11.
 Journal of Biomedical Informatics. 2026. [Under review]
+https://doi.org/10.5281/zenodo.21230851
 ```
 
 See [`CITATION.cff`](CITATION.cff) for machine-readable citation metadata.

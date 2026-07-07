@@ -21,6 +21,11 @@ authors:
       Fukushima Health Management Survey, Fukushima Medical University,
       Fukushima, Japan
 repository-code: "https://github.com/haruki00430/ndb-premodel-audit-japan"
+doi: "10.5281/zenodo.21230851"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.21230851"
+    description: "Zenodo DOI for v1.0.0"
 date-released: "2026-07-07"
 license: MIT
 version: "1.0.0"
